@@ -1,0 +1,54 @@
+# Copyright (c) 2026 Janat Yasser. All rights reserved.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -q
+
+  container:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install onnx==1.23.2 numpy==2.5.3 httpx==0.28.1 pillow==12.3.0
+      - name: Use the test model if the real one isn't committed
+        run: test -f model/model.onnx || python scripts/make_test_model.py model
+      - run: docker build -t lesion-service:ci .
+      - name: Start the container and wait until it's healthy
+        run: |
+          docker run -d --name svc -p 8000:8000 --memory 1g --cpus 2 lesion-service:ci
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' svc)" = healthy ] && break
+            curl -fs localhost:8000/health >/dev/null && break
+            sleep 2
+          done
+          curl -fsS localhost:8000/health
+          curl -fsS localhost:8000/version | head -c 400; echo
+      - name: Smoke test and load test (results in the job summary)
+        run: |
+          echo "## Load test (GitHub runner, container limited to 2 CPUs and 1 GB)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Model: $(curl -fs localhost:8000/version | python -c 'import json,sys; print(json.load(sys.stdin)["version"])')" >> "$GITHUB_STEP_SUMMARY"
+          python scripts/loadtest.py --url http://localhost:8000 --requests 300 --concurrency 4 | tee -a "$GITHUB_STEP_SUMMARY"
+          python scripts/loadtest.py --url http://localhost:8000 --requests 200 --concurrency 1 | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -fs localhost:8000/metrics | grep -q lesion_predictions_total
+          docker stats --no-stream svc | tee -a "$GITHUB_STEP_SUMMARY"
+      - if: failure()
+        run: docker logs svc | tail -50
