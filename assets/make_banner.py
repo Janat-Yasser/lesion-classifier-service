@@ -19,8 +19,10 @@ FACES = {"Mo": "ibm-plex-mono-latin-400-normal.woff2", "Mo6": "ibm-plex-mono-lat
 TERM = dict(term="#0b1020", tbar="#151b2e", tx="#c9d1e3", dim="#6b7590", key="#7dd3fc", str="#a7f3d0",
             num="#fcd34d", ok="#4ade80", prompt="#f472b6")
 THEMES = {
-    "light": dict(bg="#f3f5f9", ink="#0f172a", muted="#475569", faint="#94a3b8", line="#dde3ec", tile="#ffffff", acc="#2563eb", **TERM),
-    "dark": dict(bg="#0d1117", ink="#e6edf3", muted="#9aa7b8", faint="#5f6b7c", line="#232b36", tile="#131a24", acc="#60a5fa", **TERM),
+    "light": dict(bg="#f3f5f9", ink="#0f172a", muted="#475569", faint="#94a3b8", line="#dde3ec", tile="#ffffff",
+                  acc="#2563eb", **TERM),
+    "dark": dict(bg="#0d1117", ink="#e6edf3", muted="#9aa7b8", faint="#5f6b7c", line="#232b36", tile="#131a24",
+                 acc="#60a5fa", **TERM),
 }
 
 # (indent, [(text, colour key)]) -- one line of the terminal each
@@ -49,7 +51,8 @@ def banner(t, card):
     f = Figure(W, H, t, "lesion-classifier-service: a terminal sends a skin-lesion photo to the API and gets back a "
                "JSON prediction with calibrated probabilities and a melanoma flag. Median latency 17 ms on 2 CPUs, "
                "about 58 requests per second, 21 tests, drift monitored.", FACES)
-    f.add(f'<rect x="0.75" y="0.75" width="{W-1.5}" height="{H-1.5}" rx="14" fill="{t["bg"]}" stroke="{t["line"]}" stroke-width="1.5"/>')
+    f.add(f'<rect x="0.75" y="0.75" width="{W-1.5}" height="{H-1.5}" rx="14" fill="{t["bg"]}" '
+          f'stroke="{t["line"]}" stroke-width="1.5"/>')
     # left column
     f.text(32, 50, "SERVICE · v1", "Mo6", 10.5, "acc", spacing=1.5, cls="fade")
     f.text(32, 92, "lesion-classifier", "Sg", 30, "ink", cls="rise", style=d(0.1))
