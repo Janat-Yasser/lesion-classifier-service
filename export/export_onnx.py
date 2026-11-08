@@ -30,6 +30,7 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
+MEAN, STD = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 CLASSES = ["MEL", "NV", "BCC", "AKIEC", "BKL", "DF", "VASC"]
 NAMES = {"MEL": "Melanoma", "NV": "Melanocytic nevus", "BCC": "Basal cell carcinoma",
          "AKIEC": "Actinic keratosis / Bowen's disease", "BKL": "Benign keratosis", "DF": "Dermatofibroma",
@@ -65,13 +66,19 @@ def main():
                       dynamic_axes={"image": {0: "batch"}, "logits": {0: "batch"}}, dynamo=False)
 
     sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
-    x = torch.randn(4, 3, size, size)
+    # Parity on image-like inputs: smooth colour fields in [0, 1], normalised like real photos.
+    # (Pure Gaussian noise drives this network's logits past +-100, where float32 rounding
+    # differences between the two runtimes reach 1e-2 and the check says nothing about real use.)
+    g = torch.Generator().manual_seed(0)
+    x = torch.nn.functional.interpolate(torch.rand(8, 3, 8, 8, generator=g), size=(size, size), mode="bilinear")
+    x = (x - torch.tensor(MEAN)[:, None, None]) / torch.tensor(STD)[:, None, None]
     with torch.no_grad():
         ref = m(x).numpy()
     got = sess.run(None, {"image": x.numpy()})[0]
     diff = float(np.abs(ref - got).max())
-    assert diff < 1e-3, f"ONNX and PyTorch disagree: max |diff| {diff}"
-    print(f"parity check: max |logit difference| {diff:.2e}")
+    pdiff = float(np.abs(softmax(ref) - softmax(got)).max())
+    assert diff < 1e-3 and pdiff < 1e-4, f"ONNX and PyTorch disagree: max |logit diff| {diff}, max |prob diff| {pdiff}"
+    print(f"parity check: max |logit difference| {diff:.2e}, max |probability difference| {pdiff:.2e}")
 
     metrics = json.loads((run / "results" / f"{a.name}_metrics.json").read_text())
     preds = np.load(run / "results" / f"{a.name}_predictions.npz", allow_pickle=True)

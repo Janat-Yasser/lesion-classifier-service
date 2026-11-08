@@ -50,7 +50,9 @@ logged as one JSON line.
 
 - **ONNX Runtime, not PyTorch, in the container.** The service needs only `onnxruntime`, not PyTorch,
   which keeps the image small and starts fast. `export/export_onnx.py` refuses to write the model unless
-  ONNX Runtime and PyTorch agree on the logits to within 1e-3.
+  ONNX Runtime and PyTorch agree to within 1e-3 on the logits and 1e-4 on the probabilities, on image-like
+  inputs. (On pure Gaussian noise this network's logits pass ±100, where float32 rounding alone reaches
+  1e-2, so noise is a misleading test input.) For the shipped model the largest difference is 9e-6.
 - **Preprocessing identical to training.** A test checks the service's preprocessing against the
   torchvision evaluation transform used in training, to within 1e-5. A silent mismatch here is a classic way
   for a deployed model to underperform its paper.
@@ -80,11 +82,34 @@ The tests use a tiny stand-in model built by `scripts/make_test_model.py`, so th
 CI then builds the Docker image, starts it with 2 CPUs and 1 GB, waits for the healthcheck, and runs
 `scripts/loadtest.py`. The latency table lands in the job summary of every run.
 
-## Where the model comes from
+## The model
 
-The model is the EfficientNet-B0 from my HAM10000 project, trained with a **lesion-level** split. There,
-the common image-level split let repeat photos of the same mole leak into validation, and validation
-flattered the model by 13 points on the official test set. The model card (`GET /version`) carries its
-official test-set numbers and its limitations.
+EfficientNet-B0 (15.3 MB as ONNX) from my [HAM10000 project](https://github.com/Janat-Yasser/ham10000),
+trained with a **lesion-level** split, seed 42. Official ISIC 2018 test set, 1,512 images:
+
+| | |
+|---|---|
+| Balanced accuracy | 0.744 (95% CI 0.704–0.780) |
+| Macro AUC | 0.960 |
+| Melanoma AUC | 0.922 |
+| Melanoma flag (threshold chosen on validation) | sensitivity 0.795, specificity 0.890 |
+| Calibration error (ECE) after temperature scaling | 0.014 (0.084 before) |
+
+Why the lesion split: HAM10000 has several photos of many moles. With the usual image-level split those
+repeats leak into validation, and across three seeds validation overstated test balanced accuracy by
+13.7 points, against 4.8 with the lesion split. About a quarter of test melanomas are still called benign
+nevi, which is the main reason the card says research only.
+
+## Measured latency
+
+The real model on a 2-core machine, ONNX Runtime on CPU, one image per request (`scripts/loadtest.py`):
+
+| concurrency | p50 ms | p95 ms | p99 ms | requests/s | errors |
+|---|---|---|---|---|---|
+| 1 | 17 | 21 | 23 | 57.5 | 0 / 300 |
+| 4 | 68 | 83 | 86 | 57.8 | 0 / 400 |
+
+Throughput stays at about 58 requests/s while latency grows with concurrency, so 2 cores are the
+bottleneck: requests queue rather than fail. More throughput means more replicas, not more concurrency.
 
 © 2026 Janat Yasser. All rights reserved.

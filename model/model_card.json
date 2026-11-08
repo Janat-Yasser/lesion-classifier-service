@@ -1,0 +1,63 @@
+{
+  "version": "ham10000-effnetb0-lesion-20261108",
+  "architecture": "EfficientNet-B0 (torchvision), ImageNet-pretrained, fine-tuned on HAM10000",
+  "classes": [
+    "MEL",
+    "NV",
+    "BCC",
+    "AKIEC",
+    "BKL",
+    "DF",
+    "VASC"
+  ],
+  "class_names": {
+    "MEL": "Melanoma",
+    "NV": "Melanocytic nevus",
+    "BCC": "Basal cell carcinoma",
+    "AKIEC": "Actinic keratosis / Bowen's disease",
+    "BKL": "Benign keratosis",
+    "DF": "Dermatofibroma",
+    "VASC": "Vascular lesion"
+  },
+  "input_size": 224,
+  "temperature": 1.8727096319198608,
+  "melanoma_threshold": 0.26461780071258545,
+  "test_metrics": {
+    "dataset": "ISIC 2018 Task 3 official test set",
+    "n_images": 1512,
+    "balanced_accuracy": 0.7436,
+    "balanced_accuracy_95ci": [
+      0.7044,
+      0.7796
+    ],
+    "macro_auc": 0.9602,
+    "melanoma_auc": 0.9221,
+    "melanoma_sensitivity": 0.7953,
+    "melanoma_specificity": 0.8904,
+    "ece_after_temperature_scaling": 0.0143
+  },
+  "reference_prediction_share": {
+    "MEL": 0.127,
+    "NV": 0.6197,
+    "BCC": 0.0582,
+    "AKIEC": 0.0317,
+    "BKL": 0.1124,
+    "DF": 0.0271,
+    "VASC": 0.0238
+  },
+  "trained_on": "HAM10000 / ISIC 2018 Task 3 training set, lesion split (lesion-level), seed 42",
+  "data_license": "ISIC 2018 / HAM10000: CC BY-NC 4.0 (non-commercial)",
+  "intended_use": "Demonstrating model serving and monitoring. Research only.",
+  "limitations": [
+    "Not a medical device and not validated for clinical use.",
+    "Dermatoscopic images only; phone photos of skin are out of distribution.",
+    "HAM10000 is mostly light skin; performance on darker skin tones is unknown.",
+    "About a quarter of test melanomas were classified as benign nevi."
+  ],
+  "source_run": {
+    "best_epoch": 18,
+    "val_balanced_acc": 0.7901
+  },
+  "onnx_parity_max_abs_diff": 8.821487426757812e-06,
+  "sha256": "214aa841000e4711595e2504275d91acf0f10c5e6b5de696f11caad9839913c7"
+}
